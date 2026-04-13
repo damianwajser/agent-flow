@@ -289,8 +289,9 @@ function drawAgentLabel(ctx: CanvasRenderingContext2D, agent: Agent, r: number, 
   ctx.fillText(truncateText(ctx, primaryLabel, maxLabelW), agent.x, labelY)
   labelY += 13
 
-  // Line 2: description (for subagents) or task/user message (for orchestrator) — dim
-  const secondaryLabel = agent.agentType ? agent.name : agent.task
+  // Line 2: task description — dim
+  // When agentType matches name (both from subagent_type), show task to avoid duplication
+  const secondaryLabel = (!agent.agentType || agent.agentType === agent.name) ? agent.task : agent.name
   if (secondaryLabel) {
     ctx.fillStyle = isHovered ? COLORS.textPrimary : COLORS.textDim
     ctx.font = '10px monospace'
