@@ -77,6 +77,7 @@ export function writeDiscoveryFile(port: number, workspace: string): void {
     port,
     pid: process.pid,
     workspace: normalizePath(workspace),
+    startedAt: Date.now(),
   }, null, 2) + '\n')
   log.info(`Wrote ${filePath}`)
 }

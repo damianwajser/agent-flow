@@ -305,7 +305,7 @@ function writeDiscoveryFile(port: number, workspace: string) {
   if (!fs.existsSync(DISCOVERY_DIR)) fs.mkdirSync(DISCOVERY_DIR, { recursive: true })
   const hash = hashWorkspace(workspace)
   discoveryFilePath = path.join(DISCOVERY_DIR, `${hash}-${process.pid}.json`)
-  fs.writeFileSync(discoveryFilePath, JSON.stringify({ port, pid: process.pid, workspace: normalizePath(workspace) }, null, 2) + '\n')
+  fs.writeFileSync(discoveryFilePath, JSON.stringify({ port, pid: process.pid, workspace: normalizePath(workspace), startedAt: Date.now() }, null, 2) + '\n')
 }
 
 function removeDiscoveryFile() {

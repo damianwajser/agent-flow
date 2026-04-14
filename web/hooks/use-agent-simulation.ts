@@ -14,7 +14,7 @@ import { TOOL_CARD_W, TOOL_CARD_H, FORCE, TOOL_SLOT, BUBBLE_VISIBLE_S, MODEL_CON
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide, type Simulation } from 'd3-force'
 
 import type { SimulationState, ForceNode, ForceLink, UseAgentSimulationOptions } from './simulation/types'
-import { createEmptyState, resetMsgIdCounter, MAX_EVENT_LOG } from './simulation/types'
+import { createEmptyState, resetMsgIdCounter, MAX_EVENT_LOG, compactEventLog } from './simulation/types'
 import { processEvent, type ProcessEventContext } from './simulation/process-event'
 import { computeNextFrame } from './simulation/animate'
 import { snapVisualState } from './simulation/snap-visual-state'
@@ -215,7 +215,28 @@ export function useAgentSimulation(options: UseAgentSimulationOptions = {}) {
     }
 
     const prev = frameRef.current
+
+    // When paused, still buffer external events into the eventLog so they're
+    // not lost — just don't advance the timeline or process animations.
     if (!prev.isPlaying) {
+      if (capturedEvents && capturedEvents.length > 0) {
+        let currentState = prev
+        const newEvents: SimulationEvent[] = []
+        for (const event of capturedEvents) {
+          const activeFilter = sessionFilterRef.current
+          if (activeFilter && event.sessionId && event.sessionId !== activeFilter) continue
+          const eventTime = event.time || prev.currentTime
+          const timedEvent = { ...event, time: eventTime }
+          currentState = processEventWithContext(timedEvent, currentState)
+          newEvents.push(timedEvent)
+        }
+        if (newEvents.length > 0) {
+          let newLog = currentState.eventLog.concat(newEvents)
+          newLog = compactEventLog(newLog)
+          currentState = { ...currentState, eventLog: newLog, maxTimeReached: Math.max(prev.maxTimeReached, currentState.currentTime) }
+          commitState(currentState)
+        }
+      }
       animationRef.current = requestAnimationFrame(animateRef.current)
       return
     }
@@ -265,9 +286,7 @@ export function useAgentSimulation(options: UseAgentSimulationOptions = {}) {
     // Append new events to log
     if (newEvents.length > 0) {
       let newLog = currentState.eventLog.concat(newEvents)
-      if (newLog.length > MAX_EVENT_LOG) {
-        newLog = newLog.slice(newLog.length - MAX_EVENT_LOG)
-      }
+      newLog = compactEventLog(newLog)
       // In mock mode, eventIndex tracks position in MOCK_SCENARIO (not the log).
       // In live mode, eventIndex tracks position in the event log.
       if (!useMockData) {

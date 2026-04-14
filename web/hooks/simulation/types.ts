@@ -71,8 +71,26 @@ export const MAX_BUBBLES = 20
 /** Max conversation messages kept per agent (oldest are dropped) */
 export const MAX_CONVERSATION_MESSAGES = 200
 
-/** Max events kept in the event log for seeking (oldest are dropped) */
-export const MAX_EVENT_LOG = 5000
+/** Max events kept in the event log for seeking (oldest are dropped).
+ *  When trimming, structural events (agent_spawn, agent_complete, subagent_return)
+ *  are preserved to maintain graph integrity on seek. */
+export const MAX_EVENT_LOG = 15000
+
+/** Event types that must survive log compaction for correct seek/replay */
+export const STRUCTURAL_EVENT_TYPES = new Set([
+  'agent_spawn', 'agent_complete', 'subagent_return',
+])
+
+/** Compact an event log that exceeds MAX_EVENT_LOG.
+ *  Keeps all structural events + the most recent non-structural events. */
+export function compactEventLog(log: SimulationEvent[]): SimulationEvent[] {
+  if (log.length <= MAX_EVENT_LOG) return log
+  const structural = log.filter(e => STRUCTURAL_EVENT_TYPES.has(e.type))
+  const nonStructural = log.filter(e => !STRUCTURAL_EVENT_TYPES.has(e.type))
+  const budget = MAX_EVENT_LOG - structural.length
+  const kept = budget > 0 ? nonStructural.slice(-budget) : []
+  return [...structural, ...kept].sort((a, b) => a.time - b.time)
+}
 
 /** Append a message to a conversation, creating the array if needed.
  *  Auto-assigns a unique id if not provided.
